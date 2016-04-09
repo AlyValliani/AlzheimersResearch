@@ -1,0 +1,74 @@
+!obj:pylearn2.train.Train {
+        dataset: &data !obj:pylearn2.datasets.mri.MRI {
+                which_set: "train",
+                start: 0,
+                stop: 611,
+        },
+        model: !obj:pylearn2.models.dbm.DBM {
+                inference_procedure: !obj:pylearn2.models.dbm.inference_procedure.BiasInit {},
+                batch_size : 100,
+                niter: 6,
+
+                visible_layer: !obj:pylearn2.models.dbm.layer.GaussianVisLayer {
+                        rows: 256,
+                        cols: 166,
+                        channels: 1,
+                        init_beta: 3.7,
+                        init_mu: 0.,
+                },
+                hidden_layers: [
+                        !obj:pylearn2.models.dbm.layer.ConvMaxPool {
+                                scale_by_sharing: 0,
+                                border_mode : 'valid',
+                                output_channels: 16,
+                                kernel_rows: 11,
+                                kernel_cols: 11,
+                                pool_rows: 2,
+                                pool_cols: 2,
+                                irange: 0.005,
+                                layer_name: 'h0_conv',
+                                init_bias: -5.,
+                       },
+                       !obj:pylearn2.models.dbm.Softmax {
+                                center: 0,
+                                max_col_norm: 5.175683,
+                                sparse_init: 23,
+                                layer_name: 'c',
+                                n_classes: 3,
+                       },
+                ],
+        },
+
+        algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+                learning_rate: 1e-5, # 1e-3 quickly got NaNs
+                train_iteration_mode: even_sequential,
+                monitor_iteration_mode: even_sequential,
+                #batches_per_iter : 300,
+                #monitoring_batches : 10,
+                monitoring_dataset: {
+                      raw_valid: !obj:pylearn2.datasets.mri.MRI {
+                                which_set: "train",
+                                start: 296,
+                                stop: 711,
+                      },
+                },
+
+                cost : !obj:pylearn2.costs.dbm.VariationalPCD {
+                                supervised: 1,
+                                num_gibbs_steps: 5,
+                                num_chains: 100,
+                },
+
+                termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
+                                channel_name: "raw_valid_misclass",
+                                N: 100,
+                                prop_decrease: 0.,
+                },
+        },
+            extensions: [
+                !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                        channel_name: "raw_valid_misclass",
+                        save_path: "cnn_rbm_brain_big.pkl",
+                },
+        ],
+}
